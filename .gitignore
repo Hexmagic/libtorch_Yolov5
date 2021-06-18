@@ -14,11 +14,11 @@ build
 
 # Compiled Dynamic libraries
 *.so
-*.dylib
+*.dylib 
 *.dll
 
 # Fortran module files
-*.mod
+*.mod 
 *.smod
 
 # Compiled Static libraries
