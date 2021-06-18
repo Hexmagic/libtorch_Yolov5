@@ -1,12 +1,18 @@
 cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
-project(custom_ops)
-
+project(app)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
 find_package(Torch REQUIRED)
 set(OpenCV_DIR "/usr/local/opt/opencv@3/share/OpenCV")
 find_package( OpenCV REQUIRED )
-include_directories( ${OpenCV_INCLUDE_DIRS} )
+include_directories( 
+    ${OpenCV_INCLUDE_DIRS}
+    lib
+)
+add_executable(main main.cpp lib)
+add_executable(test test.cpp)
 
-add_executable(example-app example-app.cpp)
-target_link_libraries(example-app ${TORCH_LIBRARIES} ${OpenCV_LIBS})
-set_property(TARGET example-app PROPERTY CXX_STANDARD 17)
+target_link_libraries(main ${TORCH_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(test ${TORCH_LIBRARIES} ${OpenCV_LIBS})
+
 
