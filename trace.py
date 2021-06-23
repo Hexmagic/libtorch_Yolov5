@@ -47,7 +47,7 @@ module.save("model.pt")
 
 images = []
 images_origin = []
-path = "test/images/bus.jpg"
+path = "test/images/test1.jpg"
 image = cv2.imread(path, cv2.IMREAD_COLOR)
 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 images_origin.append(image)  # keep for save result
