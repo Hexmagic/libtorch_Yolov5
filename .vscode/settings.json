@@ -1,5 +1,6 @@
 {
     "cmake.configureArgs": [        
         "-DCMAKE_PREFIX_PATH=/Users/mix/libtorch_example/libtorch"
-    ]
+    ],
+    "python.pythonPath": "/usr/local/bin/python3.7"
 }

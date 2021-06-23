@@ -22,17 +22,20 @@ start = time()
 output = traced_script_module(batch)
 stop = time()
 print(str(stop-start) + "s")
-
+import cv2
 # read image
+# img = cv2.imread("dog.png")
+# img = img.astype(np.float32)
+# img = cv2.resize(img,(224,224))
+# img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)/255
+# image = torchvision.transforms.ToTensor()(img)
+
 image = Image.open('dog.png').convert('RGB')
 default_transform = transforms.Compose([
         transforms.Resize([224, 224]),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                             std=[0.229, 0.224, 0.225])
+        transforms.ToTensor()        
       ])
 image = default_transform(image)
-
 # forward
 output = traced_script_module(image.unsqueeze(0))
 print(output[0, :10])
@@ -44,6 +47,6 @@ data_out = output[0].data.numpy()
 sorted_idxs = np.argsort(-data_out)
 
 for i,idx in enumerate(sorted_idxs[:5]):
-  print('top-%d label: %s, score: %f' % (i, labels[idx], data_out[idx]))
+  print('top-%d label: %s, score: %f' % (idx, labels[idx], data_out[idx]))
 
 
