@@ -24,7 +24,7 @@ vector<int> nms(torch::Tensor& boxes, torch::Tensor& scores, torch::Tensor& labe
     scores = scores.masked_select(conf_mask);
     labels = labels.masked_select(conf_mask);
     boxes = boxes.masked_select(conf_mask.unsqueeze(1).expand_as(boxes)).reshape({-1,4});
-    
+
     auto x1 = boxes.select(1, 0).contiguous();// 左上角X 坐标
     auto y1 = boxes.select(1, 1).contiguous();// 左上角Y 坐标
     auto x2 = boxes.select(1, 2).contiguous();// 右下角 X
@@ -82,12 +82,8 @@ class YoloLoss{
     int num_anchors = 3;
     int WIDTH = 416;
     int bbox_atts = 85;
-    int HEIGHT = 416;
-    double ignore_thrershold = 0.5;
-    double lambda_xy = 2.5;
-    double lambda_wh = 2.5;
-    double lambda_conf = 1.0;
-    double lambda_cls = 1.0;
+    int HEIGHT = 416;    
+    
 
     YoloLoss(vector<vector<int>>& anchors) :anchors(anchors){
 
@@ -129,7 +125,7 @@ class YoloLoss{
         vector<double> stride_arr = {stride_w,stride_h,stride_w,stride_h};
         auto _scale = torch::tensor(stride_arr);
         conf = conf.view({bs,-1 ,1});
-        cout<<pred_cls.sizes()<<endl;
+        cout << pred_cls.sizes() << endl;
         pred_cls = pred_cls.permute({1,2,3,4,0}).view({bs,-1,this->num_classes});
         pred_boxes = pred_boxes.contiguous().view({bs,-1,4}) * _scale;
         cout << "Cat Tensor: Box Size " << pred_boxes.sizes() << " Conf size: " << conf.sizes() << " Cls size: " << pred_cls.sizes() << endl;
@@ -156,10 +152,10 @@ void loadClassNames(string path, vector<string>& classnames){
     while (getline(coconame, row))
     {
         classnames.push_back(row);
-    }    
+    }
 }
-static void drawText(cv::Mat &img, const std::string &text, int fontHeight, const cv::Scalar &fgColor,
-                     const cv::Scalar &bgColor, const cv::Point &leftTopShift) {
+static void drawText(cv::Mat& img, const std::string& text, int fontHeight, const cv::Scalar& fgColor,
+    const cv::Scalar& bgColor, const cv::Point& leftTopShift) {
     if (text.empty()) {
         printf("text cannot be empty!\n");
         return;
@@ -176,20 +172,20 @@ static void drawText(cv::Mat &img, const std::string &text, int fontHeight, cons
     // Draw text background
     textLeftTop += leftTopShift;
     cv::rectangle(img, textLeftTop, textLeftTop + cv::Point(textSize.width, textSize.height + baseline), bgColor,
-                  cv::FILLED);
+        cv::FILLED);
     textLeftBottom += leftTopShift;
     ft2->putText(img, text, textLeftBottom, fontHeight, fgColor, -1, cv::LINE_AA, true);
 }
 
-int main(){
+int main(int argc,char *argv[]){
     // 默认参数
-    string img_path = "data/images/bus.jpg";
+    string img_path = argv[1];
     vector<string>classNames;
-    loadClassNames("data/coco.names",classNames);
+    loadClassNames("data/coco.names", classNames);
     double conf_thresh = 0.5;
     double nms_thresh = 0.45;
-    int WIDTH = 416;
-    int HEIGHT = 416;
+    int PRED_WIDTH = 416;
+    int PRED_HEIGHT = 416;
     vector<vector<vector<int>>> anchors = {
         {{116, 90}, {156, 198}, {373, 326}},
         {{30, 61}, {62, 45}, {59, 119}},
@@ -203,13 +199,16 @@ int main(){
     auto module = torch::jit::load("weights/model.pt");
     vector<cv::Scalar> colors = get_colors(80);
     // 加载处理图片
-    auto img = cv::imread(img_path, cv::IMREAD_COLOR);
-    cv::resize(img, img, {WIDTH,HEIGHT}, cv::INTER_LINEAR);
+    auto oimg = cv::imread(img_path, cv::IMREAD_COLOR);
+    int HEIGHT = oimg.rows;
+    int WIDTH = oimg.cols;
+    cv::Mat img;
+    cv::resize(oimg, img, {PRED_WIDTH,PRED_HEIGHT}, cv::INTER_LINEAR);
     cv::Mat cimg;
     cv::cvtColor(img, cimg, cv::COLOR_BGR2RGB);
     cv::Mat img_float;
     cimg.convertTo(img_float, CV_32F, 1 / 255.0, 0);
-    torch::Tensor img_tensor = torch::from_blob(img_float.data, {1,416,416,3});
+    torch::Tensor img_tensor = torch::from_blob(img_float.data, {1,PRED_WIDTH,PRED_HEIGHT,3});
     img_tensor = img_tensor.permute({0,3,1,2});
     std::vector<torch::IValue> inputs;
     inputs.push_back(img_tensor);
@@ -218,7 +217,7 @@ int main(){
     // 处理输出 
     std::vector<torch::Tensor> output_list;
     auto first = outputs->elements()[0].toTensor();
-    
+
     for (int i = 0;i < 3;i++){
         auto loss = yolo_losses[i];
         auto elem = outputs->elements()[i].toTensor();
@@ -235,8 +234,8 @@ int main(){
     copy_box.select(1, 3) = boxes.select(1, 1) + boxes.select(1, 3) / 2;
     copy_box = copy_box.clamp(0, INT_MAX);
     auto scores = output.select(1, 4);
-    auto labels = output.slice(1, 5, 85);    
-    labels = torch::argmax(labels,-1);
+    auto labels = output.slice(1, 5, 85);
+    labels = torch::argmax(labels, -1);
 
     auto keep = nms(copy_box, scores, labels, conf_thresh, nms_thresh);
     // 可视化
@@ -244,15 +243,18 @@ int main(){
         auto box = copy_box[index];
         auto score = scores[index];
         std::vector<float> box_vec(box.data_ptr<float>(), box.data_ptr<float>() + box.numel());
-        vector<int> points;
-        for (auto& p : box_vec){
-            points.push_back(int(p));
-        }        
+
+        int org_w = (box_vec[2] - box_vec[0]) / PRED_WIDTH * WIDTH;
+        int org_h = (box_vec[3] - box_vec[1]) / PRED_HEIGHT * HEIGHT;
+        int org_x = box_vec[0]/PRED_WIDTH*WIDTH;
+        int org_y = box_vec[1]/PRED_HEIGHT*HEIGHT;
+        cv::Rect rect(org_x,org_y,org_w,org_h);
         auto cls = labels[index].item<int>();
         //cout<<colors[cls]<<endl;
-        cv::rectangle(img, cv::Rect(cv::Point(points[0], points[1]), cv::Point(points[2], points[3])), colors[cls], 1);
-        drawText(img,classNames[cls],12,colors[cls],cv::Scalar(255,255,255),cv::Point(points[0],points[1]));
+        cv::rectangle(oimg, rect, colors[cls], 1);
+        drawText(oimg, classNames[cls], 14, colors[cls], cv::Scalar(255, 255, 255), cv::Point(org_x, org_y));
     }
-    cv::imshow("Test", img);
+    cv::imshow("Test", oimg);
     cv::waitKey(0);
+    cv::imwrite("assets/output.jpg", oimg);
 }

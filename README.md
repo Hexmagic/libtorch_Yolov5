@@ -2,6 +2,11 @@
 
 使用libtorch部署yolov3模型，由于c++没有torchvision,只能使用OpenCV处理图像，所以最好模型训练时同样是使用OpenCV进行图像处理。这里挑选 [YOLOv3_Pytorch](https://github.com/BobLiu20/YOLOv3_PyTorch)提供的预训练模型。
 
+## 环境准备
+
+1. 需要下载libtorch,解压放在工程目录下
+2. GCC需要支持C++17标准
+
 ## 模型导出
 
 我们需要拿到YOLOV3_Pytorch的预训练模型，然后使用`trace.py`转换成`jit trace module`. 
@@ -42,3 +47,4 @@ make -j4
 cp main ..
 ./main
 ```
+![](assets/output.jpg)
