@@ -7,10 +7,13 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <random>
 #include <fstream>
+#include <opencv2/freetype.hpp>
 using namespace std;
 /* main */
 
+#define DEFAULT_FONT_PATH "fonts/NotoSansCJKsc-Regular.otf"
 
 vector<int> nms(torch::Tensor& boxes, torch::Tensor& scores, torch::Tensor& labels, double conf_thresh, double nms_thresh){
     vector<int> keep;
@@ -19,16 +22,15 @@ vector<int> nms(torch::Tensor& boxes, torch::Tensor& scores, torch::Tensor& labe
     auto conf_mask = scores > conf_thresh;
 
     scores = scores.masked_select(conf_mask);
-
-    conf_mask = conf_mask.unsqueeze(1).expand_as(boxes);
-    boxes = boxes.masked_select(conf_mask).reshape({-1,4});
-
-    auto x1 = boxes.select(1, 0).contiguous();
-    auto y1 = boxes.select(1, 1).contiguous();
-    auto x2 = boxes.select(1, 2).contiguous();
-    auto y2 = boxes.select(1, 3).contiguous();
-    auto areas = (x2 - x1) * (y2 - y1);
-    auto ordered_index = torch::argsort(scores);
+    labels = labels.masked_select(conf_mask);
+    boxes = boxes.masked_select(conf_mask.unsqueeze(1).expand_as(boxes)).reshape({-1,4});
+    
+    auto x1 = boxes.select(1, 0).contiguous();// 左上角X 坐标
+    auto y1 = boxes.select(1, 1).contiguous();// 左上角Y 坐标
+    auto x2 = boxes.select(1, 2).contiguous();// 右下角 X
+    auto y2 = boxes.select(1, 3).contiguous();// 右下角 Y
+    auto areas = (x2 - x1) * (y2 - y1);// 每个预测框的面积
+    auto ordered_index = torch::argsort(scores); // 按score进行排序
     int box_num = scores.numel();
 
     int suppressed[box_num];
@@ -47,7 +49,6 @@ vector<int> nms(torch::Tensor& boxes, torch::Tensor& scores, torch::Tensor& labe
         auto iy2 = y2[index];
         auto areai = areas[index].item<double>();
 
-
         for (int j = i + 1;j < box_num;j++){
             auto index_ = ordered_index[j].item<int>();
             if (suppressed[index_])
@@ -65,7 +66,7 @@ vector<int> nms(torch::Tensor& boxes, torch::Tensor& scores, torch::Tensor& labe
             auto inter_area = h * w;
             auto areaj = areas[index_].item<double>() ;
             auto area_inter = inter_area.item<double>();
-            auto iou = inter_area / (areai + areaj - inter_area);
+            auto iou = inter_area / (areai + areaj - inter_area);// IOU
             if (iou.item<double>() > nms_thresh){
                 suppressed[index_] = 1;
             }
@@ -73,7 +74,7 @@ vector<int> nms(torch::Tensor& boxes, torch::Tensor& scores, torch::Tensor& labe
     }
     return keep;
 }
-
+// 对比YOLOv3_Pytorch的yolo_loss进行复刻
 class YoloLoss{
     public:
     vector<vector<int>> anchors;
@@ -113,22 +114,23 @@ class YoloLoss{
         auto conf = torch::sigmoid(tmp.select(0, 4).contiguous());
         auto pred_cls = torch::sigmoid(tmp.slice(0, 5, this->bbox_atts)).contiguous();
         auto grid_x = torch::linspace(0, in_w - 1, in_w).repeat({in_w,1}).repeat({bs * this->num_anchors,1,1}).view(x.sizes()).to(torch::kFloat32);
-        auto grid_y = torch::linspace(0, in_h - 1, in_h).repeat({in_h,1}).t().repeat({bs * this->num_anchors,1,1}).view(y.sizes()).to(torch::kFloat32);        
+        auto grid_y = torch::linspace(0, in_h - 1, in_h).repeat({in_h,1}).t().repeat({bs * this->num_anchors,1,1}).view(y.sizes()).to(torch::kFloat32);
         auto anchor_w = torch::tensor(scaled_w).reshape({this->num_anchors,1});
         auto anchor_h = torch::tensor(scaled_h).reshape({this->num_anchors,1});
         anchor_w = anchor_w.repeat({bs,1}).repeat({1,1,in_h * in_w}).view(w.sizes());
         anchor_h = anchor_h.repeat({bs,1}).repeat({1,1,in_h * in_w}).view(h.sizes());
         auto pred_boxes = torch::zeros({4,bs,this->num_anchors,in_h,in_w});
         cout << pred_boxes.sizes() << endl;
-        pred_boxes[0] = x.data() + grid_x;        
+        pred_boxes[0] = x.data() + grid_x;
         pred_boxes[1] = y.data() + grid_y;
-        pred_boxes[2] = torch::exp(w.data()) * anchor_w;               
+        pred_boxes[2] = torch::exp(w.data()) * anchor_w;
         pred_boxes[3] = torch::exp(h.data()) * anchor_h;
         pred_boxes = pred_boxes.permute({1,2,3,4,0});
         vector<double> stride_arr = {stride_w,stride_h,stride_w,stride_h};
         auto _scale = torch::tensor(stride_arr);
         conf = conf.view({bs,-1 ,1});
-        pred_cls = pred_cls.view({bs,-1,this->num_classes});
+        cout<<pred_cls.sizes()<<endl;
+        pred_cls = pred_cls.permute({1,2,3,4,0}).view({bs,-1,this->num_classes});
         pred_boxes = pred_boxes.contiguous().view({bs,-1,4}) * _scale;
         cout << "Cat Tensor: Box Size " << pred_boxes.sizes() << " Conf size: " << conf.sizes() << " Cls size: " << pred_cls.sizes() << endl;
         auto output = torch::cat({
@@ -139,9 +141,51 @@ class YoloLoss{
         return output;
     }
 };
+
+vector<cv::Scalar> get_colors(int num_classes){
+    vector<cv::Scalar> colors;
+    for (int i = 0;i < num_classes;i++){
+        auto color = cv::Scalar(rand() % 256, rand() % 256, rand() % 256);
+        colors.push_back(color);
+    }
+    return colors;
+}
+void loadClassNames(string path, vector<string>& classnames){
+    ifstream coconame(path);
+    string row;
+    while (getline(coconame, row))
+    {
+        classnames.push_back(row);
+    }    
+}
+static void drawText(cv::Mat &img, const std::string &text, int fontHeight, const cv::Scalar &fgColor,
+                     const cv::Scalar &bgColor, const cv::Point &leftTopShift) {
+    if (text.empty()) {
+        printf("text cannot be empty!\n");
+        return;
+    }
+
+    cv::Ptr<cv::freetype::FreeType2> ft2;
+    int baseline = 0;
+    ft2 = cv::freetype::createFreeType2();
+    ft2->loadFontData(DEFAULT_FONT_PATH, 0);
+    cv::Size textSize = ft2->getTextSize(text, fontHeight, -1, &baseline);
+    cv::Point textLeftBottom(0, textSize.height);
+    textLeftBottom -= cv::Point(0, baseline);   // (left, bottom) of text
+    cv::Point textLeftTop(textLeftBottom.x, textLeftBottom.y - textSize.height);    // (left, top) of text
+    // Draw text background
+    textLeftTop += leftTopShift;
+    cv::rectangle(img, textLeftTop, textLeftTop + cv::Point(textSize.width, textSize.height + baseline), bgColor,
+                  cv::FILLED);
+    textLeftBottom += leftTopShift;
+    ft2->putText(img, text, textLeftBottom, fontHeight, fgColor, -1, cv::LINE_AA, true);
+}
+
 int main(){
     // 默认参数
     string img_path = "data/images/bus.jpg";
+    vector<string>classNames;
+    loadClassNames("data/coco.names",classNames);
     double conf_thresh = 0.5;
     double nms_thresh = 0.45;
     int WIDTH = 416;
@@ -157,7 +201,7 @@ int main(){
     }
     // 加载模型
     auto module = torch::jit::load("weights/model.pt");
-
+    vector<cv::Scalar> colors = get_colors(80);
     // 加载处理图片
     auto img = cv::imread(img_path, cv::IMREAD_COLOR);
     cv::resize(img, img, {WIDTH,HEIGHT}, cv::INTER_LINEAR);
@@ -169,34 +213,33 @@ int main(){
     img_tensor = img_tensor.permute({0,3,1,2});
     std::vector<torch::IValue> inputs;
     inputs.push_back(img_tensor);
-
     auto outputs = module(inputs).toTuple();
+
     // 处理输出 
     std::vector<torch::Tensor> output_list;
     auto first = outputs->elements()[0].toTensor();
-    cout << first.sizes() << endl;
+    
     for (int i = 0;i < 3;i++){
         auto loss = yolo_losses[i];
-        auto elem = outputs->elements()[i].toTensor();        
+        auto elem = outputs->elements()[i].toTensor();
         auto out = loss.forward(elem);
         output_list.push_back(out);
     }
     auto output = torch::cat(output_list, 1);
     output = output[0];
-    cout << output.sizes() << endl;
     auto boxes = output.slice(1, 0, 4);
-
     auto copy_box = boxes.clone();
     copy_box.select(1, 0) = boxes.select(1, 0) - boxes.select(1, 2) / 2;
     copy_box.select(1, 1) = boxes.select(1, 1) - boxes.select(1, 3) / 2;
     copy_box.select(1, 2) = boxes.select(1, 0) + boxes.select(1, 2) / 2;
     copy_box.select(1, 3) = boxes.select(1, 1) + boxes.select(1, 3) / 2;
     copy_box = copy_box.clamp(0, INT_MAX);
-    cout << copy_box.slice(0, 0, 5) << endl;
     auto scores = output.select(1, 4);
-    auto labels = output.slice(1, 5, 85);
-    auto keep = nms(copy_box, scores, labels, conf_thresh, nms_thresh);
+    auto labels = output.slice(1, 5, 85);    
+    labels = torch::argmax(labels,-1);
 
+    auto keep = nms(copy_box, scores, labels, conf_thresh, nms_thresh);
+    // 可视化
     for (auto& index : keep){
         auto box = copy_box[index];
         auto score = scores[index];
@@ -204,9 +247,11 @@ int main(){
         vector<int> points;
         for (auto& p : box_vec){
             points.push_back(int(p));
-        }
-        cv::rectangle(img, cv::Rect(cv::Point(points[0], points[1]), cv::Point(points[2], points[3])), cv::FONT_HERSHEY_PLAIN, 2);
-        cout << endl;
+        }        
+        auto cls = labels[index].item<int>();
+        //cout<<colors[cls]<<endl;
+        cv::rectangle(img, cv::Rect(cv::Point(points[0], points[1]), cv::Point(points[2], points[3])), colors[cls], 1);
+        drawText(img,classNames[cls],12,colors[cls],cv::Scalar(255,255,255),cv::Point(points[0],points[1]));
     }
     cv::imshow("Test", img);
     cv::waitKey(0);

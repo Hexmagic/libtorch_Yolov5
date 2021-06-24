@@ -13,6 +13,8 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 from matplotlib.ticker import NullLocator
 
+cmap = plt.get_cmap('tab20b')
+colors = [cmap(i) for i in np.linspace(0, 1, 20)]
 config = {
     "model_params": {
         "backbone_name": "darknet_53",
@@ -68,18 +70,16 @@ for i in range(3):
         YOLOLoss(config["yolo"]["anchors"][i], config["yolo"]["classes"],
                  (config["img_w"], config["img_h"])))
 output_list = []
-for i in range(3):   
+for i in range(3):
     output_list.append(yolo_losses[i](outputs[i]))
 output = torch.cat(output_list, 1)
-print(output[0][:,:4][:5])
+print(output[0][:, :4][:5])
 batch_detections = non_max_suppression(
     output,
     config["yolo"]["classes"],
     conf_thres=config["confidence_threshold"],
     nms_thres=0.45)
 
-cmap = plt.get_cmap('tab20b')
-colors = [cmap(i) for i in np.linspace(0, 1, 20)]
 classes = open(config["classes_names_path"], "r").read().split("\n")[:-1]
 if not os.path.isdir("./output/"):
     os.makedirs("./output/")
@@ -92,7 +92,7 @@ for idx, detections in enumerate(batch_detections):
         n_cls_preds = len(unique_labels)
         bbox_colors = random.sample(colors, n_cls_preds)
         for x1, y1, x2, y2, conf, cls_conf, cls_pred in detections:
-            print(x1,y1,x2,y2)
+            print(x1, y1, x2, y2)
             color = bbox_colors[int(
                 np.where(unique_labels == int(cls_pred))[0])]
             # Rescale coordinates to original dimensions
@@ -102,7 +102,7 @@ for idx, detections in enumerate(batch_detections):
             box_w = ((x2 - x1) / pre_w) * ori_w
             y1 = (y1 / pre_h) * ori_h
             x1 = (x1 / pre_w) * ori_w
-            
+
             # Create a Rectangle patch
             bbox = patches.Rectangle((x1, y1),
                                      box_w,
