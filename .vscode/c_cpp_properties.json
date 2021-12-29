@@ -4,15 +4,16 @@
             "name": "Mac",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/usr/local/opt/opencv@3",
-                "/Users/mix/libtorch_example/libtorch"
+                "/usr/local/include/opencv4",
+                "/Users/mix/libtorch_YOLOv3/libtorch",
+                "${workspaceFolder}/include"
             ],
             "defines": [],
             "macFrameworkPath": [
                 "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks"
             ],
-            "compilerPath": "/usr/local/opt/llvm@9/bin/clang",
-            "intelliSenseMode": "macos-clang-x64",
+            "compilerPath": "/usr/bin/gcc",
+            "intelliSenseMode": "gcc-x64",
             "configurationProvider": "ms-vscode.cmake-tools"
         }
     ],
