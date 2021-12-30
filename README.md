@@ -9,7 +9,7 @@
 
 ## 准备工作
 
-0. 我们需要到[release页面](https://github.com/ultralytics/yolov5/releases)下载yolov5的预训练模型，这里选择yolv5s.pt
+0. 我们需要到[release页面](https://github.com/ultralytics/yolov5/releases)下载yolov5的预训练模型，例如选择yolv5s.pt
 
 1. 然后使用`trace.py`转换成scrptmodel:
 
@@ -38,7 +38,7 @@ mkdir build&&cd build
 cmake ..
 make -j4
 cd ..
-./build/main data/images/zidane.jpg
+./build/main yolov5s.torchscript data/images/zidane.jpg
 ```
 ![](assets/output.jpg)
 
