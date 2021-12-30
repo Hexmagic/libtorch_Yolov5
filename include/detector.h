@@ -5,13 +5,26 @@
 #include <sstream>
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/dnn.hpp>
 #include "torch/torch.h"
 #include "torch/script.h"
 
 using namespace cv;
 using namespace std;
 
-struct Config{
+struct PadInfo{
+    float scale;
+    int top;
+    int left;
+};
+
+struct Detection{
+    PadInfo info;
+    torch::Tensor detection;
+};
+
+struct Config
+{
     float confThreshold;
     float nmsThreshold;
     string weightPath;
@@ -21,8 +34,9 @@ struct Config{
 class Detector{
     public:
         Detector(Config&config);
-        void detect(Mat&img);
-        void postProcess(torch::Tensor&detection);
+        Detection detect(Mat&img);
+        void postProcess(Mat&img,Detection&detection);
+        PadInfo letterBoxImage(Mat &img);
     private:
         float nmsThreshold = 0.45;
         float confThreshold = 0.25;
@@ -30,5 +44,6 @@ class Detector{
         int inHeight = 640;
         vector<string> classNames;
         torch::jit::script::Module model;
-        vector<float> letterBoxImage(Mat &img);
+
+        void drawPredection(Mat&img,vector<Rect>&boxes,vector<float>&sc,vector<string>&clsNames, vector<int>&ind);
 };

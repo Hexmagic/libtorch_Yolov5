@@ -1,50 +1,45 @@
 ## 介绍
 
-使用libtorch部署yolov3模型，由于c++没有torchvision,只能使用OpenCV处理图像，所以最好模型训练时同样是使用OpenCV进行图像处理。这里挑选 [YOLOv3_Pytorch](https://github.com/BobLiu20/YOLOv3_PyTorch)提供的预训练模型。
+使用libtorch部署yolov5模型，由于c++没有torchvision,只能使用OpenCV处理图像，所以最好模型训练时同样是使用OpenCV进行图像处理。这里挑选ultralytics公司的[Yolov5](https://github.com/ultralytics/yolov5.git)提供的预训练模型。
 
 ## 环境准备
 
 1. 需要下载libtorch,解压放在工程目录下
-2. GCC需要支持C++17标准
+2. GCC需要支持C++11标准
 
-## 模型导出
+## 准备工作
 
-我们需要拿到YOLOV3_Pytorch的预训练模型，然后使用`trace.py`转换成`jit trace module`. 
+0. 我们需要到[release页面](https://github.com/ultralytics/yolov5/releases)下载yolov5的预训练模型，这里选择yolv5s.pt
 
-1. 克隆YOLOv3_Pytorch代码:
-```bash
-git clone https://github.com/BobLiu20/YOLOv3_PyTorch.git
-cd YOLOv3_PyToch
-```
-2. 从谷歌云盘下载Pytorch预训练模型 ： [Google Drive](https://drive.google.com/file/d/1SnFAlSvsx37J7MDNs3WWLgeKY0iknikP/view?usp=sharing) \\ [Baidu Drive](https://pan.baidu.com/s/1YCcRLPWPNhsQfn5f8bs_0g)  
-3. 将下载的模型重命名，然后移动到对应目录:
-
-```powershell
-mkdir weights
-mv official_yolov3_weights_pytorch.pth weights/yolov3.pt
-```
-4. 模型转换:
-```powershell
-cp trace.py .
-python3 trace.py
-```
-最终我们会得到一个名为`model.pt`的`jit`模型
-
-## 运行
-克隆代码 复制模型,然后进行构建
+1. 然后使用`trace.py`转换成scrptmodel:
 
 ```bash
-git clone https://github.com/Hexmagic/libtorch_example.git
-cd libtorch_example
-mkdir weights
-cp model.pt weights
+git clone https://github.com/ultralytics/yolov5.git
+cd yolov5
+python3.7 export.py --data data/coco128.yaml --weights yolov5s.pt --include torchscript
 ```
+我们会得到一个yolov5s.torchscript文件
+
+## 环境确认
+克隆我们的代码 复制模型到当前目录，复制libtorch到当前目录并解压
+```bash
+git clone https://github.com/Hexmagic/libtorch_Yolov5.git
+cd libtorch_Yolov5
+```
+这是最终的目录情况，其中libtorch是我们解压的libtorch包，yolov5s.torchscript是我们上一步导出的script模型
+```
+CMakeLists.txt      README.md           data                include             main.cpp            yolov5s.torchscript
+LICENSE             assets              fonts               libtorch            src
+```
+
 编译代码:
 ```bash
-mkdir build&&cd build 
+mkdir build&&cd build
 cmake ..
-make -j4 
-cp main ..
-./main
+make -j4
+cd ..
+./build/main data/images/zidane.jpg
 ```
 ![](assets/output.jpg)
+
+> 这里没有缩放到原图，只是简单显示。
