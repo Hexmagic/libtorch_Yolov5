@@ -97,7 +97,7 @@ void Detector::drawPredection(Mat&img,std::vector<Rect>&boxes,std::vector<float>
         cout<<name<<endl;
         putText(img,name,Point(rect.x,rect.y),FONT_HERSHEY_PLAIN,1.2 ,Scalar(0,255,0));
     }
-    imshow("rst",img);
-    waitKey(0);
+    //imshow("rst",img);
+    //waitKey(0);
 
 }
