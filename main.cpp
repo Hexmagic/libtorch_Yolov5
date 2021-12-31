@@ -25,6 +25,6 @@ int main(int argc, char *argv[])
     detector.letterBoxImage(img);
     detector.postProcess(img,detection);
     imwrite("assets/output.jpg",img);
-    cout << "detect Image" << endl;
+    cout << "detect Image And Save to assets/output.jpg" << endl;
     return 0;
 }

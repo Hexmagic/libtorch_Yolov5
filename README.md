@@ -2,6 +2,7 @@
 
 使用libtorch部署yolov5模型，由于c++没有torchvision,只能使用OpenCV处理图像，所以最好模型训练时同样是使用OpenCV进行图像处理。这里挑选ultralytics公司的[Yolov5](https://github.com/ultralytics/yolov5.git)提供的预训练模型。
 
+> [Google colab Notebook](https://colab.research.google.com/drive/1t5DVj-woC8D2c3dYPoFxnf6lEX4KA1I_#scrollTo=TkTBYwRdAunh)
 ## 环境准备
 
 1. 需要下载libtorch,解压放在工程目录下
