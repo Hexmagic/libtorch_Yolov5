@@ -17,7 +17,7 @@
 ```bash
 git clone https://github.com/ultralytics/yolov5.git
 cd yolov5
-python3.7 export.py --data data/coco128.yaml --weights yolov5s.pt --include torchscript
+python3.7 export.py --data data/coco128.yaml --weights yolov5s.pt 
 ```
 我们会得到一个yolov5s.torchscript文件
 
